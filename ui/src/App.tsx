@@ -19,7 +19,7 @@ interface AskResponse {
   sources: Source[];
 }
 
-const apiUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:3000';
+const apiUrl = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '');
 
 export function App(): ReactElement {
   const [question, setQuestion] = useState('');
