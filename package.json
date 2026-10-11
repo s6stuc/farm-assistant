@@ -1,0 +1,33 @@
+{
+  "name": "ollama",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "npm --prefix ui run dev",
+    "build": "npm run ui:build && npm run api:build",
+    "ui:build": "npm --prefix ui run build",
+    "ui:preview": "npm --prefix ui run preview",
+    "api:build": "npm --prefix api run build",
+    "api:chunks": "npm --prefix api run chunks",
+    "api:embed": "npm --prefix api run embed",
+    "api:start": "npm --prefix api run start",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.3",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "prettier": "^3.9.5",
+    "typescript": "^6.0.3",
+    "vite": "^8.1.5"
+  },
+  "dependencies": {
+    "@hono/node-server": "^2.1.4",
+    "@lancedb/lancedb": "^0.22.3",
+    "hono": "^4.13.13",
+    "ollama": "^0.6.4",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  }
+}

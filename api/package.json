@@ -1,0 +1,11 @@
+{
+  "name": "ollama-api",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "chunks": "node dist/src/scripts/build-chunks.js",
+    "embed": "node dist/src/scripts/embed-chunks.js",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/src/main.js"
+  }
+}
