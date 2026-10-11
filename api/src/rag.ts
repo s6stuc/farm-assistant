@@ -52,7 +52,7 @@ const databaseDirectory =
 const tableName = process.env.LANCEDB_TABLE ?? 'document_chunks';
 const ollamaHost = process.env.OLLAMA_HOST ?? 'http://127.0.0.1:11434';
 const embeddingModel = process.env.OLLAMA_EMBED_MODEL ?? 'nomic-embed-text';
-const chatModel = process.env.OLLAMA_CHAT_MODEL ?? 'llama3.2:3b';
+const chatModel = process.env.OLLAMA_CHAT_MODEL ?? 'llama3.2:1b';
 const defaultResultLimit = 5;
 
 const errorMessage = (error: unknown): string => {
@@ -87,7 +87,13 @@ const answerQuestion = async (
   const ollama = new Ollama({ host: ollamaHost });
   const embeddingResponse = await withStage(
     `Embedding with Ollama at ${ollamaHost} using ${embeddingModel}`,
-    () => ollama.embed({ model: embeddingModel, input: question }),
+    () =>
+      ollama.embed({
+        model: embeddingModel,
+        input: question,
+        // Free the embedding model before loading the chat model.
+        keep_alive: 0,
+      }),
   );
   const db = await withStage(`Opening LanceDB at ${databaseDirectory}`, () =>
     lancedb.connect(databaseDirectory),
@@ -131,7 +137,7 @@ const answerQuestion = async (
             content: `Context:\n\n${context}\n\nQuestion: ${question}`,
           },
         ],
-        options: { temperature: 0 },
+        options: { temperature: 0, num_ctx: 4096 },
       }),
   );
 
