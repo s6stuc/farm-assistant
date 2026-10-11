@@ -47,12 +47,29 @@ const projectDirectory =
   basename(process.cwd()) === 'api'
     ? dirname(process.cwd())
     : dirname(apiDirectory);
-const databaseDirectory = join(projectDirectory, 'data', 'lancedb');
+const databaseDirectory =
+  process.env.LANCEDB_PATH ?? join(projectDirectory, 'data', 'lancedb');
 const tableName = process.env.LANCEDB_TABLE ?? 'document_chunks';
 const ollamaHost = process.env.OLLAMA_HOST ?? 'http://127.0.0.1:11434';
 const embeddingModel = process.env.OLLAMA_EMBED_MODEL ?? 'nomic-embed-text';
 const chatModel = process.env.OLLAMA_CHAT_MODEL ?? 'llama3.2:3b';
 const defaultResultLimit = 5;
+
+const errorMessage = (error: unknown): string => {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return String(error);
+};
+
+const withStage = async <T>(stage: string, operation: () => Promise<T>): Promise<T> => {
+  try {
+    return await operation();
+  } catch (error: unknown) {
+    throw new Error(`${stage} failed: ${errorMessage(error)}`);
+  }
+};
 
 const systemPrompt = `You answer questions using only the supplied context about Loxley Valley Community Farm.
 
@@ -68,16 +85,19 @@ const answerQuestion = async (
   limit: number,
 ): Promise<RagAnswer> => {
   const ollama = new Ollama({ host: ollamaHost });
-  const embeddingResponse = await ollama.embed({
-    model: embeddingModel,
-    input: question,
-  });
-  const db = await lancedb.connect(databaseDirectory);
-  const table = await db.openTable(tableName);
-  const results = (await table
-    .search(embeddingResponse.embeddings[0])
-    .limit(limit)
-    .toArray()) as RetrievedChunk[];
+  const embeddingResponse = await withStage(
+    `Embedding with Ollama at ${ollamaHost} using ${embeddingModel}`,
+    () => ollama.embed({ model: embeddingModel, input: question }),
+  );
+  const db = await withStage(`Opening LanceDB at ${databaseDirectory}`, () =>
+    lancedb.connect(databaseDirectory),
+  );
+  const table = await withStage(`Opening LanceDB table ${tableName}`, () =>
+    db.openTable(tableName),
+  );
+  const results = await withStage('Searching LanceDB', () =>
+    table.search(embeddingResponse.embeddings[0]).limit(limit).toArray(),
+  ) as RetrievedChunk[];
 
   if (results.length === 0) {
     return {
@@ -99,17 +119,21 @@ const answerQuestion = async (
           .join('\n')}`,
     )
     .join('\n\n---\n\n');
-  const response = await ollama.chat({
-    model: chatModel,
-    messages: [
-      { role: 'system', content: systemPrompt },
-      {
-        role: 'user',
-        content: `Context:\n\n${context}\n\nQuestion: ${question}`,
-      },
-    ],
-    options: { temperature: 0 },
-  });
+  const response = await withStage(
+    `Generating an answer with Ollama at ${ollamaHost} using ${chatModel}`,
+    () =>
+      ollama.chat({
+        model: chatModel,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          {
+            role: 'user',
+            content: `Context:\n\n${context}\n\nQuestion: ${question}`,
+          },
+        ],
+        options: { temperature: 0 },
+      }),
+  );
 
   return {
     answer: splitParagraphs(response.message.content),
